@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define NUMJOBS 100
+#define NUMJOBS 10
 #define NUMTHREADS 5
 #define SLEEP_US 500000
 
