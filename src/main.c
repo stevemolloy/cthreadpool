@@ -16,6 +16,7 @@ void *wrapper(void *v_ptr) {
     int *val_ptr = (int *)v_ptr;
     int val = *val_ptr;
 
+    // TODO: The following malloc happens in a different function from the free, which I don't like
     int *res = malloc(sizeof(int));
     *res = slow_square(val);
     return (void *)res;
@@ -38,6 +39,7 @@ int main(void) {
         int *res = (int *)res_ptr[i];
 
         printf("%d squared is %d\n", i * 1, *res);
+        // TODO: The following free happens in a different function from the malloc, which I don't like
         free(res); // Free the allocated memory
     }
 
