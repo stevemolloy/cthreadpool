@@ -3,9 +3,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define NUMJOBS 10
+#define NUMJOBS 15
 #define NUMTHREADS 5
-#define SLEEP_US 500000
+#define SLEEP_US 500 * 1000
+
+typedef struct {
+  int in_val;
+  int out_val;
+} WrapperInput;
 
 int slow_square(int val) {
     usleep(SLEEP_US);
@@ -13,34 +18,27 @@ int slow_square(int val) {
 }
 
 void *wrapper(void *v_ptr) {
-    int *val_ptr = (int *)v_ptr;
-    int val = *val_ptr;
+    WrapperInput *wi = (WrapperInput *)v_ptr;
+    int val = wi->in_val;
 
-    // TODO: The following malloc happens in a different function from the free, which I don't like
-    int *res = malloc(sizeof(int));
-    *res = slow_square(val);
-    return (void *)res;
+    wi->out_val = slow_square(val);
+
+    return NULL;
 }
 
 int main(void) {
     pthread_t threads[NUMJOBS];
+    WrapperInput inputs[NUMJOBS];
 
-    int inputs[NUMJOBS];
     for (int i = 0; i < NUMJOBS; i++) {
-        inputs[i] = i * 1;
-        pthread_create(&threads[i], NULL, &wrapper, &inputs[i]);
+      inputs[i].in_val = i;
+      pthread_create(&threads[i], NULL, &wrapper, &inputs[i]);
     }
 
-    void *res_ptr[NUMJOBS];
-
     for (int i = 0; i < NUMJOBS; i++) {
-        pthread_join(threads[i], &res_ptr[i]);
+        pthread_join(threads[i], NULL);
 
-        int *res = (int *)res_ptr[i];
-
-        printf("%d squared is %d\n", i * 1, *res);
-        // TODO: The following free happens in a different function from the malloc, which I don't like
-        free(res); // Free the allocated memory
+        printf("%d squared is %d\n", i * 1, inputs[i].out_val);
     }
 
     return 0;
