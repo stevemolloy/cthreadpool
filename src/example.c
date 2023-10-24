@@ -19,9 +19,8 @@ int slow_square(int val) {
 
 void *wrapper(void *v_ptr) {
     WrapperInput *wi = (WrapperInput *)v_ptr;
-    int val = wi->in_val;
 
-    wi->out_val = slow_square(val);
+    wi->out_val = slow_square(wi->in_val);
 
     return NULL;
 }
