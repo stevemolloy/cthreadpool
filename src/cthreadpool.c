@@ -24,12 +24,13 @@ int add_job_to_queue(JobQueue *queue, Job newjob) {
     queue->jobs[queue->length++] = newjob;
     return 0;
   } else {
-    queue->jobs = realloc(queue->jobs, queue->capacity * 2);
+    queue->jobs = realloc(queue->jobs, sizeof(Job) * queue->capacity * 2);
     if (queue->jobs == NULL) {
       fprintf(stderr, "Could not add the new job");
       return -1;
     }
     queue->capacity *= 2;
+    queue->jobs[queue->length++] = newjob;
     return 0;
   }
 }
