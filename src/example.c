@@ -5,7 +5,7 @@
 
 #define NUMJOBS 15
 #define NUMTHREADS 5
-#define SLEEP_US 250 * 1000
+#define SLEEP_US 1500 * 1000
 
 typedef struct {
   void *(*fun_ptr)(void*); // A pointer to a function that takes a void* as input and returns a void*
@@ -73,7 +73,14 @@ ActiveWorkers create_new_workers_list(size_t max_workers) {
 
 int add_job_to_activeworkers(ActiveWorkers *aws, Job newjob) {
   if (aws->length < aws->capacity) {
-    aws->jobs[aws->length++] = newjob;
+    aws->jobs[aws->length] = newjob;
+    pthread_create(
+        &aws->jobs[aws->length].thread,
+        NULL,
+        aws->jobs[aws->length].fun_ptr,
+        aws->jobs[aws->length].data_struct
+      );
+    aws->length++;
     return 1;
   } else {
     return -1;
@@ -100,12 +107,12 @@ int run_pool_to_completion(Pool *pool) {
       Job *next_job = malloc(sizeof(Job));
       *next_job = pool->queue.jobs[--pool->queue.length];
       add_job_to_activeworkers(&pool->active_workers, *next_job);
-      pthread_create(
-          &pool->active_workers.jobs[pool->active_workers.length-1].thread,
-          NULL,
-          pool->active_workers.jobs[pool->active_workers.length-1].fun_ptr,
-          pool->active_workers.jobs[pool->active_workers.length-1].data_struct
-        );
+      // pthread_create(
+      //     &pool->active_workers.jobs[pool->active_workers.length-1].thread,
+      //     NULL,
+      //     pool->active_workers.jobs[pool->active_workers.length-1].fun_ptr,
+      //     pool->active_workers.jobs[pool->active_workers.length-1].data_struct
+      //   );
     }
   }
 
@@ -131,26 +138,35 @@ void *wrapper(void *v_ptr) {
 }
 
 int main(void) {
+  size_t num_jobs_to_submit = 4;
   Pool threadpool = create_new_pool(4);
 
-  WrapperInput input;
-  input.in_val = 5;
-
-  Job newjob;
-  newjob.fun_ptr = &wrapper;
-  newjob.data_struct = &input;
-
-  int result = add_job_to_queue(&(threadpool.queue), newjob);
-  if (result < 0) {
-    fprintf(stderr, "Could not add job to queue. Exiting\n");
-    return 1;
+  WrapperInput wi_s[num_jobs_to_submit];
+  Job jobs[num_jobs_to_submit];
+  for (size_t i=0; i<num_jobs_to_submit; i++) {
+    wi_s[i].in_val = (int)i+2;
+    jobs[i].fun_ptr = &wrapper;
+    jobs[i].data_struct = (void*)&wi_s[i];
   }
 
+  for (size_t i=0; i<num_jobs_to_submit; i++) {
+    int result = add_job_to_queue(&(threadpool.queue), jobs[i]);
+    if (result < 0) {
+      fprintf(stderr, "Could not add job to queue. Exiting\n");
+      return 1;
+    }
+  }
+
+  printf("Running all jobs\n");
   run_pool_to_completion(&threadpool);
 
-  pthread_join(threadpool.active_workers.jobs[0].thread, NULL);
+  for (size_t i=0; i<num_jobs_to_submit; i++) {
+    pthread_join(threadpool.active_workers.jobs[i].thread, NULL);
+  }
 
-  printf("Result from thread = %d\n", input.out_val);
+  for (size_t i=0; i<num_jobs_to_submit; i++) {
+    printf("Result from thread = %d\n", wi_s[i].out_val);
+  }
 
   return 0;
 }
