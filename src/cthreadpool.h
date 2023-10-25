@@ -32,6 +32,7 @@ ActiveWorkers create_new_workers_list(size_t);
 int add_job_to_activeworkers(ActiveWorkers*, Job);
 Pool create_new_pool(size_t);
 int run_pool_to_completion(Pool*);
+void kill_pool(Pool*);
 
 #endif // !_CTHREADPOOL_H
 

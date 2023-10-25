@@ -4,8 +4,8 @@
 
 #include "cthreadpool.h"
 
-#define NUMJOBS 17
-#define NUMTHREADS 5
+#define NUMJOBS 200
+#define NUMTHREADS 10
 #define SLEEP_US 100 * 1000
 
 typedef struct {
@@ -47,6 +47,9 @@ int main(void) {
 
   printf("Running all jobs\n");
   run_pool_to_completion(&threadpool);
+
+  printf("Tearing down the pool\n");
+  kill_pool(&threadpool);
 
   for (size_t i=0; i<NUMJOBS; i++) {
     printf("Result from thread #%zu = %d\n", i, wi_s[i].out_val);

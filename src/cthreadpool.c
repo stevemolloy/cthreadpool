@@ -10,7 +10,6 @@ void wait_for_queue(JobQueue *queue) {
   }
 }
 
-// TODO: Make sure the memory malloc's here is freed
 JobQueue create_new_queue(size_t max_workers) {
   Job *joblist = malloc(max_workers * sizeof(Job));
   return (JobQueue) {
@@ -20,7 +19,6 @@ JobQueue create_new_queue(size_t max_workers) {
   };
 }
 
-// TODO: Make sure the memory realloc's here is freed
 int add_job_to_queue(JobQueue *queue, Job newjob) {
   if (queue->length >= queue->capacity) {
     queue->jobs = realloc(queue->jobs, sizeof(Job) * queue->capacity * 2);
@@ -34,7 +32,6 @@ int add_job_to_queue(JobQueue *queue, Job newjob) {
   return 0;
 }
 
-// TODO: Make sure the memory malloc's here is freed
 ActiveWorkers create_new_workers_list(size_t max_workers) {
   Job *joblist = malloc(max_workers * sizeof(Job));
   ActiveWorkers aws = (ActiveWorkers) {
@@ -94,4 +91,8 @@ int run_pool_to_completion(Pool *pool) {
   return 0;
 }
 
+void kill_pool(Pool *pool) {
+  free(pool->queue.jobs);
+  free(pool->active_workers.jobs);
+}
 
