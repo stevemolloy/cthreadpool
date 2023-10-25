@@ -171,27 +171,3 @@ int main(void) {
   return 0;
 }
 
-int main2(void) {
-  // For this to work we need an array of threads and an array of structs used as inputs
-  pthread_t threads[NUMJOBS];
-  WrapperInput inputs[NUMJOBS];
-
-  // Prepare the input and create the threads
-  for (int i = 0; i < NUMJOBS; i++) {
-    inputs[i].in_val = i;
-    pthread_create(&threads[i], NULL, &wrapper, &inputs[i]);
-  }
-
-  // Wait for the threads to complete
-  for (int i = 0; i < NUMJOBS; i++) {
-      pthread_join(threads[i], NULL);
-  }
-
-  // Print results
-  for (int i = 0; i < NUMJOBS; i++) {
-      printf("%d squared is %d\n", i * 1, inputs[i].out_val);
-  }
-
-  return 0;
-}
-
