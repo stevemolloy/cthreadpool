@@ -4,6 +4,8 @@
 
 #include "cthreadpool.h"
 
+#define DEF_QUEUE_SIZE 64
+
 JobQueue create_new_queue(size_t max_workers) {
   Job *joblist = malloc(max_workers * sizeof(Job));
   return (JobQueue) {
@@ -55,7 +57,7 @@ int add_job_to_activeworkers(ActiveWorkers *aws, Job newjob) {
 Pool create_new_pool(size_t max_workers) {
   return (Pool) {
     .max_workers = max_workers,
-    .queue = create_new_queue(64),
+    .queue = create_new_queue(DEF_QUEUE_SIZE),
     .active_workers = create_new_workers_list(max_workers),
   };
 }
