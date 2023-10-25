@@ -66,6 +66,10 @@ int run_pool_to_completion(Pool *pool) {
   size_t max_workers = pool->active_workers.capacity;
 
   while (pool->queue.length > 0) {
+    printf(
+        "Triggering %zu jobs from the queue...\n",
+        pool->queue.length > max_workers ? max_workers : pool->queue.length
+      );
     while (pool->active_workers.length < max_workers) {
       if (pool->queue.length == 0) {
         break;
@@ -77,9 +81,11 @@ int run_pool_to_completion(Pool *pool) {
         );
     }
 
+    printf("Waiting for these to finish...\n");
     while (pool->active_workers.length > 0) {
       size_t index = pool->active_workers.length-1;
       pthread_join(pool->active_workers.jobs[index].thread, NULL);
+      printf("\tFinished thread %ld\n", pool->active_workers.jobs[index].thread);
       pool->active_workers.length--;
     }
   }

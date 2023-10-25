@@ -51,6 +51,7 @@ int main(void) {
   printf("Tearing down the pool\n");
   kill_pool(&threadpool);
 
+  printf("\n=====================\n\n");
   for (size_t i=0; i<NUMJOBS; i++) {
     printf("Result from thread #%zu = %d\n", i, wi_s[i].out_val);
   }
