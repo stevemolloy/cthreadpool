@@ -5,7 +5,7 @@
 
 #define NUMJOBS 15
 #define NUMTHREADS 5
-#define SLEEP_US 1500 * 1000
+#define SLEEP_US 500 * 1000
 
 typedef struct {
   void *(*fun_ptr)(void*); // A pointer to a function that takes a void* as input and returns a void*
@@ -99,7 +99,6 @@ int run_pool_to_completion(Pool *pool) {
   size_t max_workers = pool->active_workers.capacity;
 
   while (pool->queue.length > 0) {
-    
     while (pool->active_workers.length < max_workers) {
       if (pool->queue.length == 0) {
         break;
@@ -107,12 +106,12 @@ int run_pool_to_completion(Pool *pool) {
       Job *next_job = malloc(sizeof(Job));
       *next_job = pool->queue.jobs[--pool->queue.length];
       add_job_to_activeworkers(&pool->active_workers, *next_job);
-      // pthread_create(
-      //     &pool->active_workers.jobs[pool->active_workers.length-1].thread,
-      //     NULL,
-      //     pool->active_workers.jobs[pool->active_workers.length-1].fun_ptr,
-      //     pool->active_workers.jobs[pool->active_workers.length-1].data_struct
-      //   );
+    }
+
+    while (pool->active_workers.length > 0) {
+      size_t index = pool->active_workers.length-1;
+      pthread_join(pool->active_workers.jobs[index].thread, NULL);
+      pool->active_workers.length--;
     }
   }
 
@@ -138,13 +137,13 @@ void *wrapper(void *v_ptr) {
 }
 
 int main(void) {
-  size_t num_jobs_to_submit = 4;
+  size_t num_jobs_to_submit = 9;
   Pool threadpool = create_new_pool(4);
 
   WrapperInput wi_s[num_jobs_to_submit];
   Job jobs[num_jobs_to_submit];
   for (size_t i=0; i<num_jobs_to_submit; i++) {
-    wi_s[i].in_val = (int)i+2;
+    wi_s[i].in_val = (int)i+0;
     jobs[i].fun_ptr = &wrapper;
     jobs[i].data_struct = (void*)&wi_s[i];
   }
@@ -159,10 +158,6 @@ int main(void) {
 
   printf("Running all jobs\n");
   run_pool_to_completion(&threadpool);
-
-  for (size_t i=0; i<num_jobs_to_submit; i++) {
-    pthread_join(threadpool.active_workers.jobs[i].thread, NULL);
-  }
 
   for (size_t i=0; i<num_jobs_to_submit; i++) {
     printf("Result from thread = %d\n", wi_s[i].out_val);
