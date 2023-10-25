@@ -74,9 +74,11 @@ int run_pool_to_completion(Pool *pool) {
       if (pool->queue.length == 0) {
         break;
       }
-      Job *next_job = malloc(sizeof(Job));
-      *next_job = pool->queue.jobs[--pool->queue.length];
-      add_job_to_activeworkers(&pool->active_workers, *next_job);
+      pool->queue.length--;
+      add_job_to_activeworkers(
+          &pool->active_workers,
+          pool->queue.jobs[pool->queue.length]
+        );
     }
 
     while (pool->active_workers.length > 0) {
