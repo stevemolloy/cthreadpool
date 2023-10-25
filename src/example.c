@@ -5,12 +5,12 @@
 
 #define NUMJOBS 15
 #define NUMTHREADS 5
-#define SLEEP_US 500 * 1000
+#define SLEEP_US 250 * 1000
 
 typedef struct {
   void *(*fun_ptr)(void*); // A pointer to a function that takes a void* as input and returns a void*
   void *data_struct; // The void* to be used as input to the function
-  pthread_t *thread;
+  pthread_t thread;
 } Job;
 
 typedef struct {
@@ -23,36 +23,17 @@ typedef struct {
   size_t capacity;
   size_t length;
   Job *jobs;
-} ActiveWorker;
+} ActiveWorkers;
 
 typedef struct {
   size_t max_workers;
   JobQueue queue;
-  ActiveWorker active_workers;
+  ActiveWorkers active_workers;
 } Pool;
-
-int run_pool_to_completion(Pool *pool) {
-  size_t max_workers = pool->active_workers.capacity;
-
-  while (pool->queue.length > 0) {
-    
-    while (pool->active_workers.length < max_workers) {
-      if (pool->queue.length == 0) {
-        break;
-      }
-      Job *next_job = malloc(sizeof(Job));
-      *next_job = pool->queue.jobs[--pool->queue.length];
-      pthread_create(next_job->thread, NULL, next_job->fun_ptr, next_job->data_struct);
-    }
-
-  }
-
-  return 0;
-}
 
 void wait_for_queue(JobQueue *queue) {
   for (size_t i=0; i<queue->length; i++) {
-    pthread_join(*queue->jobs[i].thread, NULL);
+    pthread_join(queue->jobs[i].thread, NULL);
   }
 }
 
@@ -80,16 +61,17 @@ int add_job_to_queue(JobQueue *queue, Job newjob) {
   }
 }
 
-ActiveWorker create_new_workers_list(size_t max_workers) {
+ActiveWorkers create_new_workers_list(size_t max_workers) {
   Job *joblist = malloc(max_workers * sizeof(Job));
-  return (ActiveWorker) {
+  ActiveWorkers aws = (ActiveWorkers) {
     .capacity = max_workers,
     .length = 0,
     .jobs = joblist,
   };
+  return aws;
 }
 
-int add_job_to_activeworkers(ActiveWorker *aws, Job newjob) {
+int add_job_to_activeworkers(ActiveWorkers *aws, Job newjob) {
   if (aws->length < aws->capacity) {
     aws->jobs[aws->length++] = newjob;
     return 1;
@@ -104,6 +86,30 @@ Pool create_new_pool(size_t max_workers) {
     .queue = create_new_queue(64),
     .active_workers = create_new_workers_list(max_workers),
   };
+}
+
+int run_pool_to_completion(Pool *pool) {
+  size_t max_workers = pool->active_workers.capacity;
+
+  while (pool->queue.length > 0) {
+    
+    while (pool->active_workers.length < max_workers) {
+      if (pool->queue.length == 0) {
+        break;
+      }
+      Job *next_job = malloc(sizeof(Job));
+      *next_job = pool->queue.jobs[--pool->queue.length];
+      add_job_to_activeworkers(&pool->active_workers, *next_job);
+      pthread_create(
+          &pool->active_workers.jobs[pool->active_workers.length-1].thread,
+          NULL,
+          pool->active_workers.jobs[pool->active_workers.length-1].fun_ptr,
+          pool->active_workers.jobs[pool->active_workers.length-1].data_struct
+        );
+    }
+  }
+
+  return 0;
 }
 
 typedef struct {
@@ -131,7 +137,6 @@ int main(void) {
   input.in_val = 5;
 
   Job newjob;
-  newjob.thread = malloc(sizeof(pthread_t));
   newjob.fun_ptr = &wrapper;
   newjob.data_struct = &input;
 
@@ -143,7 +148,7 @@ int main(void) {
 
   run_pool_to_completion(&threadpool);
 
-  pthread_join(*newjob.thread, NULL);
+  pthread_join(threadpool.active_workers.jobs[0].thread, NULL);
 
   printf("Result from thread = %d\n", input.out_val);
 
