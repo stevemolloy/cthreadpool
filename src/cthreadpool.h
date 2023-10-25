@@ -25,7 +25,6 @@ typedef struct {
   ActiveWorkers active_workers;
 } Pool;
 
-void wait_for_queue(JobQueue*);
 JobQueue create_new_queue(size_t);
 int add_job_to_queue(JobQueue*, Job);
 ActiveWorkers create_new_workers_list(size_t);

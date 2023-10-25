@@ -4,12 +4,6 @@
 
 #include "cthreadpool.h"
 
-void wait_for_queue(JobQueue *queue) {
-  for (size_t i=0; i<queue->length; i++) {
-    pthread_join(queue->jobs[i].thread, NULL);
-  }
-}
-
 JobQueue create_new_queue(size_t max_workers) {
   Job *joblist = malloc(max_workers * sizeof(Job));
   return (JobQueue) {
