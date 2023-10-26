@@ -33,19 +33,19 @@ ActiveWorkers create_new_workers_list(size_t max_workers) {
   ActiveWorkers aws = (ActiveWorkers) {
     .capacity = max_workers,
     .length = 0,
-    .jobs = joblist,
+    .workers = joblist,
   };
   return aws;
 }
 
 int add_job_to_activeworkers(ActiveWorkers *aws, Job newjob) {
   if (aws->length < aws->capacity) {
-    aws->jobs[aws->length] = newjob;
+    aws->workers[aws->length] = newjob;
     pthread_create(
-        &aws->jobs[aws->length].thread,
+        &aws->workers[aws->length].thread,
         NULL,
-        aws->jobs[aws->length].fun_ptr,
-        aws->jobs[aws->length].data_struct
+        aws->workers[aws->length].fun_ptr,
+        aws->workers[aws->length].data_struct
       );
     aws->length++;
     return 1;
@@ -84,8 +84,8 @@ int run_pool_to_completion(Pool *pool) {
     printf("Waiting for these to finish...\n");
     while (pool->active_workers.length > 0) {
       size_t index = pool->active_workers.length-1;
-      pthread_join(pool->active_workers.jobs[index].thread, NULL);
-      printf("\tFinished thread %ld\n", pool->active_workers.jobs[index].thread);
+      pthread_join(pool->active_workers.workers[index].thread, NULL);
+      printf("\tFinished thread %ld\n", pool->active_workers.workers[index].thread);
       pool->active_workers.length--;
     }
   }
@@ -95,6 +95,6 @@ int run_pool_to_completion(Pool *pool) {
 
 void kill_pool(Pool *pool) {
   free(pool->queue.jobs);
-  free(pool->active_workers.jobs);
+  free(pool->active_workers.workers);
 }
 

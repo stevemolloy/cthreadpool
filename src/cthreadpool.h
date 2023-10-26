@@ -16,7 +16,7 @@ typedef struct {
 typedef struct {
   size_t capacity;
   size_t length;
-  Job *jobs;
+  Job *workers;
 } ActiveWorkers;
 
 typedef struct {
