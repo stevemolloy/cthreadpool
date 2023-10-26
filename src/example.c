@@ -5,7 +5,7 @@
 #include "cthreadpool.h"
 
 #define NUMJOBS 10
-#define NUMTHREADS 10
+#define NUMTHREADS 5
 #define SLEEP_US 1000 * 1000
 
 typedef struct {
