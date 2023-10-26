@@ -94,6 +94,14 @@ int run_pool_to_completion(Pool *pool) {
 }
 
 void kill_pool(Pool *pool) {
+  pool->queue.length = 0;
+  pool->queue.capacity = 0;
+
+  pool->active_workers.length = 0;
+  pool->active_workers.capacity = 0;
+
+  pool->max_workers = 0;
+
   free(pool->queue.jobs);
   free(pool->active_workers.workers);
 }
