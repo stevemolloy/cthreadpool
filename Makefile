@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Wextra -Wpedantic -std=c99 -ggdb
+CFLAGS = -O0 -Wall -Wextra -Wpedantic -std=c99 -ggdb
 CLIBS =
 
 SRC = src
