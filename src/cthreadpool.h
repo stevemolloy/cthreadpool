@@ -1,39 +1,33 @@
 #ifndef _CTHREADPOOL_H
 #define _CTHREADPOOL_H
 
+#include <stdbool.h>
+#include <pthread.h>
+
+// Task structure (a function and its argument)
 typedef struct {
-  void *(*fun_ptr)(void*); // A ptr to a function that accepts a void* & returns a void*
-  void *data_struct; // The void* to be used as input to the function
-  pthread_t thread;
-} Job;
+  void (*function)(void *);
+  void *arg;
+} sdm_threadpool_task_t;
 
+// Thread pool structure
 typedef struct {
-  size_t capacity;
-  size_t length;
-  Job *jobs;
-} JobQueue;
+  pthread_mutex_t lock;
+  pthread_cond_t notify;
+  pthread_t *threads;
+  sdm_threadpool_task_t *task_queue;
+  size_t num_threads;
+  size_t queue_capacity;
+  size_t next_in_queue;
+  size_t queue_length;
+  size_t waiting_in_queue;
+  bool shutdown;
+} sdm_threadpool_t;
 
-typedef struct {
-  size_t capacity;
-  size_t length;
-  Job *workers;
-} ActiveWorkers;
-
-typedef struct {
-  size_t max_workers;
-  JobQueue queue;
-  ActiveWorkers active_workers;
-} Pool;
-
-JobQueue create_new_queue(size_t);
-int add_job_to_queue(JobQueue*, Job);
-
-ActiveWorkers create_new_workers_list(size_t);
-int add_job_to_activeworkers(ActiveWorkers*, Job);
-
-Pool create_new_pool(size_t);
-int run_pool_to_completion(Pool*);
-void kill_pool(Pool*);
+sdm_threadpool_t *sdm_threadpool_create(size_t num_threads, size_t queue_size);
+int sdm_threadpool_add(sdm_threadpool_t *pool, void (*function)(void *), void *arg);
+void sdm_threadpool_join(sdm_threadpool_t *pool);
+void sdm_threadpool_destroy(sdm_threadpool_t *pool);
 
 #endif // !_CTHREADPOOL_H
 

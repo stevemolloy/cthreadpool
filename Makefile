@@ -1,6 +1,5 @@
-CC = clang
-CFLAGS = -Wall -Wextra -Wpedantic -Werror -Wconversion -Wno-unused-function -ggdb
-CLIBS = -lm
+CFLAGS = -Wall -Wextra -Wpedantic -std=c99 -ggdb
+CLIBS =
 
 SRC = src
 OBJ = obj
@@ -26,6 +25,9 @@ $(BIN):
 
 $(OBJ):
 	@mkdir -p $(OBJ)
+
+run: $(EXE)
+	./$(EXE)
 
 clean:
 	rm -rf bin obj

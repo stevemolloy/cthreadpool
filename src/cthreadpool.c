@@ -1,108 +1,127 @@
+#define _XOPEN_SOURCE 500
+#include <unistd.h>
 #include <pthread.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "cthreadpool.h"
 
-#define DEF_QUEUE_SIZE 64
+void *sdm_threadpool_thread(void *threadpool);
 
-JobQueue create_new_queue(size_t max_workers) {
-  Job *joblist = malloc(max_workers * sizeof(Job));
-  return (JobQueue) {
-    .capacity = max_workers,
-    .length = 0,
-    .jobs = joblist,
-  };
-}
+sdm_threadpool_t *sdm_threadpool_create(size_t num_threads, size_t queue_capacity) {
+  sdm_threadpool_t *pool = NULL;
 
-int add_job_to_queue(JobQueue *queue, Job newjob) {
-  if (queue->length >= queue->capacity) {
-    queue->jobs = realloc(queue->jobs, sizeof(Job) * queue->capacity * 2);
-    if (queue->jobs == NULL) {
-      fprintf(stderr, "Could not add the new job");
-      return -1;
-    }
-    queue->capacity *= 2;
+  pool = malloc(sizeof(sdm_threadpool_t));
+  if (pool == NULL) {
+    fprintf(stderr, "Memory allocation problem. Quiting\n");
+    exit(1);
   }
-  queue->jobs[queue->length++] = newjob;
-  return 0;
-}
+  memset(pool, 0, sizeof(sdm_threadpool_t));
 
-ActiveWorkers create_new_workers_list(size_t max_workers) {
-  Job *joblist = malloc(max_workers * sizeof(Job));
-  ActiveWorkers aws = (ActiveWorkers) {
-    .capacity = max_workers,
-    .length = 0,
-    .workers = joblist,
-  };
-  return aws;
-}
-
-int add_job_to_activeworkers(ActiveWorkers *aws, Job newjob) {
-  if (aws->length < aws->capacity) {
-    aws->workers[aws->length] = newjob;
-    pthread_create(
-        &aws->workers[aws->length].thread,
-        NULL,
-        aws->workers[aws->length].fun_ptr,
-        aws->workers[aws->length].data_struct
-      );
-    aws->length++;
-    return 1;
-  } else {
-    return -1;
+  pool->threads = malloc(sizeof(pthread_t) * num_threads);
+  if (pool->threads == NULL) {
+    fprintf(stderr, "Memory allocation problem. Quiting\n");
+    exit(1);
   }
+  memset(pool->threads, 0, pool->num_threads * sizeof(pool->threads[0]));
+
+  pool->task_queue = malloc(sizeof(sdm_threadpool_task_t) * queue_capacity);
+  if (pool->task_queue == NULL) {
+    fprintf(stderr, "Memory allocation problem. Quiting\n");
+    exit(1);
+  }
+  memset(pool->task_queue, 0, pool->num_threads * sizeof(pool->task_queue[0]));
+
+  pool->num_threads = num_threads;
+  pool->queue_capacity = queue_capacity;
+
+  pthread_mutex_init(&(pool->lock), NULL);
+  pthread_cond_init(&(pool->notify), NULL);
+
+  for (size_t i = 0; i < num_threads; i++) {
+    pthread_create(&(pool->threads[i]), NULL, &sdm_threadpool_thread, (void*)pool);
+  }
+
+  return pool;
 }
 
-Pool create_new_pool(size_t max_workers) {
-  return (Pool) {
-    .max_workers = max_workers,
-    .queue = create_new_queue(DEF_QUEUE_SIZE),
-    .active_workers = create_new_workers_list(max_workers),
-  };
-}
+int sdm_threadpool_add(sdm_threadpool_t *pool, void (*function)(void *), void *arg) {
+  pthread_mutex_lock(&(pool->lock));
 
-int run_pool_to_completion(Pool *pool) {
-  size_t max_workers = pool->active_workers.capacity;
-
-  while (pool->queue.length > 0) {
-    printf(
-        "Triggering %zu jobs from the queue...\n",
-        pool->queue.length > max_workers ? max_workers : pool->queue.length
-      );
-    while (pool->active_workers.length < max_workers) {
-      if (pool->queue.length == 0) {
-        break;
-      }
-      pool->queue.length--;
-      add_job_to_activeworkers(
-          &pool->active_workers,
-          pool->queue.jobs[pool->queue.length]
-        );
-    }
-
-    printf("Waiting for these to finish...\n");
-    while (pool->active_workers.length > 0) {
-      size_t index = pool->active_workers.length-1;
-      pthread_join(pool->active_workers.workers[index].thread, NULL);
-      printf("\tFinished thread %ld\n", pool->active_workers.workers[index].thread);
-      pool->active_workers.length--;
+  while (pool->waiting_in_queue >= pool->queue_capacity) {
+    pool->queue_capacity *= 2;
+    pool->task_queue = realloc(
+      pool->task_queue, sizeof(sdm_threadpool_task_t) * pool->queue_capacity);
+    if (pool->task_queue == NULL) {
+      fprintf(stderr, "Memory allocation problem. Quiting\n");
+      exit(1);
     }
   }
+
+  pool->task_queue[pool->queue_length].function = function;
+  pool->task_queue[pool->queue_length].arg = arg;
+  pool->queue_length++;
+  pool->waiting_in_queue++;
+
+  pthread_cond_broadcast(&(pool->notify));
+  pthread_mutex_unlock(&(pool->lock));
 
   return 0;
 }
 
-void kill_pool(Pool *pool) {
-  pool->queue.length = 0;
-  pool->queue.capacity = 0;
+void *sdm_threadpool_thread(void *threadpool) {
+  sdm_threadpool_t *pool = (sdm_threadpool_t *)threadpool;
 
-  pool->active_workers.length = 0;
-  pool->active_workers.capacity = 0;
+  while (1) {
+    pthread_mutex_lock(&(pool->lock));
 
-  pool->max_workers = 0;
+    while ((pool->waiting_in_queue == 0) && (!pool->shutdown)) {
+      pthread_cond_wait(&(pool->notify), &(pool->lock));
+    }
 
-  free(pool->queue.jobs);
-  free(pool->active_workers.workers);
+    if (pool->shutdown) {
+      pthread_mutex_unlock(&(pool->lock));
+      pthread_exit(NULL);
+    }
+
+    void (*function)(void *) = pool->task_queue[pool->next_in_queue].function;
+    void *arg = pool->task_queue[pool->next_in_queue].arg;
+    pool->next_in_queue++;
+    pool->waiting_in_queue--;
+
+    pthread_mutex_unlock(&(pool->lock));
+
+    function(arg);
+  }
+
+  return NULL;
+}
+
+void sdm_threadpool_join(sdm_threadpool_t *pool) {
+  while (pool->waiting_in_queue > 0) {
+    usleep(1000);
+  }
+
+  sdm_threadpool_destroy(pool);
+}
+
+void sdm_threadpool_destroy(sdm_threadpool_t *pool) {
+  pthread_mutex_lock(&(pool->lock));
+
+  pool->shutdown = true;
+
+  pthread_cond_broadcast(&(pool->notify));
+  pthread_mutex_unlock(&(pool->lock));
+
+  for (size_t i = 0; i < pool->num_threads; i++) {
+    pthread_join(pool->threads[i], NULL);
+  }
+
+  free(pool->threads);
+  free(pool->task_queue);
+  pthread_mutex_destroy(&(pool->lock));
+  pthread_cond_destroy(&(pool->notify));
+  free(pool);
 }
 
