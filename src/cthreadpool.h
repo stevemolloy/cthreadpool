@@ -25,7 +25,7 @@ typedef struct {
 } sdm_threadpool_t;
 
 sdm_threadpool_t *sdm_threadpool_create(size_t num_threads, size_t queue_size);
-int sdm_threadpool_add(sdm_threadpool_t *pool, void (*function)(void *), void *arg);
+void sdm_threadpool_add(sdm_threadpool_t *pool, void (*function)(void *), void *arg);
 void sdm_threadpool_join(sdm_threadpool_t *pool);
 void sdm_threadpool_destroy(sdm_threadpool_t *pool);
 

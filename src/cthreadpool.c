@@ -11,7 +11,6 @@ void *sdm_threadpool_thread(void *threadpool);
 
 sdm_threadpool_t *sdm_threadpool_create(size_t num_threads, size_t queue_capacity) {
   sdm_threadpool_t *pool = NULL;
-
   pool = malloc(sizeof(sdm_threadpool_t));
   if (pool == NULL) {
     fprintf(stderr, "Memory allocation problem. Quiting\n");
@@ -19,22 +18,22 @@ sdm_threadpool_t *sdm_threadpool_create(size_t num_threads, size_t queue_capacit
   }
   memset(pool, 0, sizeof(sdm_threadpool_t));
 
+  pool->num_threads = num_threads;
+  pool->queue_capacity = queue_capacity;
+
   pool->threads = malloc(sizeof(pthread_t) * num_threads);
   if (pool->threads == NULL) {
     fprintf(stderr, "Memory allocation problem. Quiting\n");
     exit(1);
   }
-  memset(pool->threads, 0, pool->num_threads * sizeof(pool->threads[0]));
+  memset(pool->threads, 0, num_threads * sizeof(pool->threads[0]));
 
   pool->task_queue = malloc(sizeof(sdm_threadpool_task_t) * queue_capacity);
   if (pool->task_queue == NULL) {
     fprintf(stderr, "Memory allocation problem. Quiting\n");
     exit(1);
   }
-  memset(pool->task_queue, 0, pool->num_threads * sizeof(pool->task_queue[0]));
-
-  pool->num_threads = num_threads;
-  pool->queue_capacity = queue_capacity;
+  memset(pool->task_queue, 0, sizeof(sdm_threadpool_task_t) * queue_capacity);
 
   pthread_mutex_init(&(pool->lock), NULL);
   pthread_cond_init(&(pool->notify), NULL);
@@ -46,17 +45,18 @@ sdm_threadpool_t *sdm_threadpool_create(size_t num_threads, size_t queue_capacit
   return pool;
 }
 
-int sdm_threadpool_add(sdm_threadpool_t *pool, void (*function)(void *), void *arg) {
+void sdm_threadpool_add(sdm_threadpool_t *pool, void (*function)(void *), void *arg) {
   pthread_mutex_lock(&(pool->lock));
 
-  while (pool->waiting_in_queue >= pool->queue_capacity) {
+  while (pool->queue_length >= (pool->queue_capacity - 1)) {
     pool->queue_capacity *= 2;
-    pool->task_queue = realloc(
-      pool->task_queue, sizeof(sdm_threadpool_task_t) * pool->queue_capacity);
-    if (pool->task_queue == NULL) {
+    size_t new_size = sizeof(sdm_threadpool_task_t) * pool->queue_capacity;
+    sdm_threadpool_task_t *new_task_queue = realloc(pool->task_queue, new_size);
+    if (new_task_queue == NULL) {
       fprintf(stderr, "Memory allocation problem. Quiting\n");
       exit(1);
     }
+    pool->task_queue = new_task_queue;
   }
 
   pool->task_queue[pool->queue_length].function = function;
@@ -66,8 +66,6 @@ int sdm_threadpool_add(sdm_threadpool_t *pool, void (*function)(void *), void *a
 
   pthread_cond_broadcast(&(pool->notify));
   pthread_mutex_unlock(&(pool->lock));
-
-  return 0;
 }
 
 void *sdm_threadpool_thread(void *threadpool) {
@@ -94,8 +92,6 @@ void *sdm_threadpool_thread(void *threadpool) {
 
     function(arg);
   }
-
-  return NULL;
 }
 
 void sdm_threadpool_join(sdm_threadpool_t *pool) {
